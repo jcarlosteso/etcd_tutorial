@@ -1,0 +1,272 @@
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300..700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Open Sans', serif;
+  font-size: 18px;
+  overflow: hidden;
+  height: 100vh;
+}
+
+header {
+  display: flex;
+  column-gap: 1rem;
+  align-items: center;
+  border-bottom: 2px solid #419eda;
+  padding: 1rem;
+}
+
+h1, header em {
+  font-size: 3rem;
+}
+
+header h1, header strong {
+  color: #419eda;
+}
+
+main {
+  margin-left: 6rem;
+  height: calc(100vh - 7rem);
+  display: flex;
+}
+
+aside {
+  width: 15vw;
+  flex-shrink: 0;
+  padding: 1rem 1rem 1rem 1rem;
+}
+
+aside > strong {
+  display: block;
+  font-size: 1.2em;
+  border-bottom: 1px solid black;
+  margin-bottom: 1rem;
+}
+
+aside ul {
+  list-style-type: none;
+}
+
+aside ul ul {
+  font-size: 0.9em;
+}
+
+aside li {
+  border-left: 5px solid transparent;
+  padding-left: 0.5rem;
+  cursor: pointer;
+}
+
+aside li:not(li *) {
+  margin-bottom: 0.5rem;
+}
+
+aside li.visible {
+  border-left: 5px solid #226aad;
+}
+
+aside li li {
+  padding: 0.25rem 0 0 0.5rem;
+}
+
+article li {
+  margin-left: 1.5rem;
+  list-style-position: outside;
+}
+
+table li {
+  list-style-position: inside;
+}
+
+article {
+  overflow-y: auto;
+  padding-right: 2rem;
+  line-height: 1.5;
+}
+
+article::-webkit-scrollbar {
+  width: 0.5rem;
+}
+
+article::-webkit-scrollbar-thumb {
+  background-color: #226aad;
+  border-radius: 0.5rem;
+  width: 0.45rem;
+}
+
+article::-webkit-scrollbar-track {
+  background-color: silver;
+}
+
+::-webkit-scrollbar-button:single-button:vertical {
+  display: none;
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  article {
+    scrollbar-width: thin;
+    scrollbar-color: #419eda silver;
+  }
+}
+
+article h2, article h3, article h4 {
+  color: #419eda;
+}
+
+article h2 {
+  margin: 0.75rem 0 0.25rem;
+  border-bottom: 1px solid #419eda;
+}
+
+article h3, article h4 {
+  margin: 0.5rem 0;
+}
+
+article p, article ul {
+  margin: 0 0 0.75rem;
+}
+
+article a[target="_blank"]::after {
+  content: "🔗";
+  font-size: 0.8rem;
+}
+
+article pre {
+  font-family: "Fira Code";
+  font-size: 0.9rem;
+  background-color: black;
+  color: white;
+  padding: 1em;
+  white-space: pre-line;
+  border-radius: 0.5rem;
+  margin: 0 4rem 1rem;
+}
+
+.command {
+  color: gold;
+}
+
+.output {
+  color: grey;
+}
+
+.important {
+  color: #6495ED;
+}
+
+img#logo {
+  width: 5rem;
+  aspect-ratio: 1;
+}
+
+table {
+  margin-left: 4rem;
+  border-collapse: separate;
+  border-spacing: 0 5px;
+}
+
+table:not(.currency) thead tr:first-of-type th {
+  border: none;
+}
+
+th, td {
+  padding: 0 0.5rem;
+}
+
+td {
+  vertical-align: top;
+  border-bottom: 1px dashed silver;
+}
+
+tr:last-of-type td {
+  border: none;
+}
+
+td.rev {
+  text-align: right;
+}
+
+th {
+  border-bottom: 1px solid black;
+  text-align: left;
+}
+
+td ul {
+  margin: 0;
+}
+
+code {
+  font-family: "Fira Code";
+  font-size: 0.9rem;
+}
+
+code.sample {
+  display: inline-block;
+  font-size: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+p.sample-text, ul.sample-list {
+  margin-left: 4rem;
+}
+
+code.sample::before {
+  content: "ℹ️ "
+}
+
+code sub {
+  font-size: 0.7rem;
+}
+
+.highlight {
+  color: #419eda;
+}
+
+table.currency {
+  border-spacing: 0;
+}
+
+table.currency thead th {
+  border-bottom: 2px solid black;
+}
+
+table.currency thead th:not(:first-child) {
+  text-align: center;
+  width: 5em;
+  border-left: 1px solid black;
+}
+
+table.currency tbody tr:not(:last-of-type) td {
+  border-bottom: 1px solid black;
+}
+
+table.currency tbody tr td:not(:first-child) {
+  border-left: 1px solid black;
+  text-align: right;
+}
+
+kbd {
+  font-size: 0.8em;
+  background-color: grey;
+  color: white;
+  padding: 0.25em;
+  border-radius: 0.25em;
+}
+
+div.split {
+  width: 100%;
+  display: flex;
+  column-gap: 1em;
+  margin-bottom: 0.75em;
+}
+
+div.split pre {
+  width: 50%;
+  margin: 0;
+}

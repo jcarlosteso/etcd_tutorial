@@ -1,7 +1,1296 @@
 <!DOCTYPE html>
 <head>
+  <link href="styles.css" rel="stylesheet"/>
   <title>Aprendo etcd</title>
+  <script>
+    const decode = encoded => new TextDecoder().decode(
+      Uint8Array.from(atob(encoded), m => m.charCodeAt(0))
+    ).toString('utf8')
+
+    const handler = (entries) => {
+      entries.forEach((entry) => {
+        const id = entry.target.dataset.target
+        console.log(entry.target, id, entry.intersectionRatio > 0)
+        const li = document.querySelector(`li[data-section="${id}"]`)
+        if (entry.intersectionRatio > 0) {
+          li.classList.add('visible')
+        } else {
+          li.classList.remove('visible')
+        }
+      })
+    }
+
+    const observer = new IntersectionObserver(handler)
+
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('li[data-section]').forEach(li => {
+        const id = li.dataset.section
+        li.addEventListener('click', (event) => {
+          event.stopImmediatePropagation()
+          document.querySelector(`[data-target="${id}"]`).scrollIntoView(true)
+        })
+      })
+
+      document.querySelectorAll('[data-target]').forEach((section) => observer.observe(section))
+    })
+  </script>
 </head>
 <body>
-  <p>etcd</p>
+  <header>
+    <img id="logo" alt="logo de etcd" src="img/etcd-glyph-color.png" />
+    <h1>etcd</h1>
+    <em>(directorio /<strong>etc d</strong>istribuido)</em>
+  </header>
+  <main>
+    <article>
+      <section data-target="introduccion">
+        <h2>¿Qué es etcd?</h2>
+
+        <p><strong>etcd</strong> es una base de datos:</p>
+        
+        <ul>
+          <li>distribuida</li>
+          <li>no relacional</li>
+          <li>tipo almacén de clave-valor</li>
+          <li>diseñada para servir como única fuente verídica <em>(single source of truth</em>, o <em>SSOT)</em> de configuraciones de sistemas distribuidos</li>
+          <li>pensada para utilizarse como almacenamiento de lectura frecuente y escritura esporádica <em>(write rarely read many,</em> o <em>WRRM)</em></li>
+        </ul>
+      </section>
+        
+      <section data-target="instalacion">
+        <h2>Instalación</h2>
+        
+        <p><strong>etcd</strong> sólo puede ser instalada en una máquina Linux o macOS.
+        Es recomendable tener instalado el gestor de paquetes <a target="_blank" rel="noopener" href="https://brew.sh/">Homebrew</a>
+        en cualquiera de estos sistemas operativos, ya que facilita mucho la instalación de la base de datos y la operación del servicio
+        de <em>background</em> que nos permite interactuar con ella.</p>
+
+        <p>Para instalar <strong>Homebrew</strong>, basta con ejecutar este comando en un terminal:</p>
+
+        <pre>
+          <b>$</b> <b class="command">/bin/bash</b> -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        </pre>
+
+        <p>Con el gestor de paquetes ya instalado, la instalación de <strong>etcd</strong> se realiza ejecutando este comando en un terminal:</p>
+
+        <pre>
+          <b>$</b> <b class="command">brew</b> install etcd
+        </pre>
+
+        <p>Es recomendable, aunque no obligatorio, instalar también el compilador <strong>gcc</strong> con:</p>
+
+        <pre>
+        <b>$</b> <b class="command">brew</b> install gcc
+        </pre>
+        
+        <p>Para iniciar <strong>etcd</strong> y crear en almacén de datos, lo mejor es usar el siguiente comando para arrancar el motor de base de datos como servicio:</p>
+        
+        <pre>
+        <b>$</b> <b class="command">brew</b> services start etcd
+        </pre>
+      </section>
+        
+      <section data-target="modelo">
+        <h2>Modelo de datos</h2>
+
+        <p>
+          <strong>etcd</strong> es una base de datos no relacional, modelo clave-valor. Tanto las claves como los valores se almacenan como cadenas de caracteres. En la
+          versión 3.5.x
+        </p>
+        
+        <p>
+          Una característica especial de <strong>etcd</strong> es que, en lugar de almacenar únicamente el valor actual de cada clave, guarda el histórico del estado de
+          todas las claves. Por ejemplo:
+        </p>
+
+        <table>
+          <thead>
+            <th>Evento</th>
+            <th>Revisión</th>
+            <th>Estado</th>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Creación del <em>cluster</em></td>
+              <td class="rev">1</td>
+              <td></td>
+            </tr>
+            <tr>
+              <td>Escritura clave <code>k1</code></td>
+              <td class="rev">2</td>
+              <td><ul>
+                <li class="highlight"><strong><code>k1</code></strong> (valor: <code>v1<sub>1</sub></code>, versión: 1, creación: Rev. 2, modificación: Rev. 2)</li>
+              </ul></td>
+            </tr>
+            <tr>
+              <td>Escritura clave <code>k2</code></td>
+              <td class="rev">3</td>
+              <td><ul>
+                <li><strong><code>k1</code></strong> (valor: <code>v1<sub>1</sub></code>, versión: 1, creación: Rev. 2, modificación: Rev. 2)</li>
+                <li class="highlight"><strong><code>k2</code></strong> (valor: <code>v2<sub>1</sub></code>, versión: 1, creación: Rev. 3, modificación: Rev. 3)</li>
+              </ul></td>
+            </tr>
+            <tr>
+              <td>Reescritura clave <code>k1</code></td>
+              <td class="rev">4</td>
+              <td><ul>
+                <li><strong><code>k1</code></strong> (<span class="highlight">valor: <code>v1<sub>2</sub></code>, versión: 2,</span> creación: Rev. 2, <span class="highlight">modificación: Rev. 4</span>)</li>
+                <li><strong><code>k2</code></strong> (valor: <code>v2<sub>1</sub></code>, versión: 1, creación: Rev. 3, modificación: Rev. 3)</li>
+              </ul></td>
+            </tr>          
+          </tbody>
+        </table>
+
+        <p>
+          En el ejemplo anterior, lo que aparece en <span class="highlight">azul brillante</span> es lo que realmente se almacena para cada revisión. Es decir, sólo
+          se guardan los cambios.
+        </p>
+
+        <p>Las claves están indexadas por su valor binario, de manera que consultar claves a partir de un prefijo o dentro de un intervalo sean operaciones muy eficientes.</p>
+      </section>
+
+      <section data-target="usos">
+        <h2>Usos paradigmáticos</h2>
+
+        <p>
+          Como ya se ha comentado, <strong>etcd</strong> está diseñada para servir como repositorio de configuraciones de sistemas distribuidos. Otro uso para el que
+          <strong>etcd</strong> resulta especialmente apropiada es como caché distribuida.
+        </p>
+
+        <p>Varias de sus características la hacen ideal para estos propósitos:</p>
+
+        <ul>
+          <li>Es una base de datos en memoria, lo que garantiza un acceso rápido</li>
+          <li>Su modelo clave-valor proporciona flexibilidad en la representación de los valores almacenados</li>
+          <li>Su arquitectura en <em>cluster</em> proporciona alta disponibilidad y balanceo de carga</li>
+          <li>Dispone de un API HTTP (llamado <em>gRPC gateway</em>) sin necesidad de elementos adicionales</li>
+        </ul>
+
+        <p>
+          Si comparamos <strong>etcd</strong> con una base de datos relacional, por ejemplo MySQL, vemos que estas últimas no disponen de las características 
+          necesarias para lograr el mismo cometido de manera eficiente:
+        </p>
+
+        <table>
+          <thead>
+            <th>Característica</th>
+            <th>etcd</th>
+            <th>MySQL</th>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Almacenamiento en memoria</td>
+              <td>Por defecto</td>
+              <td>Necesita que las tablas se creen indicando explícitamente que se guardan en memoria</td>
+            </tr>
+            <tr>
+              <td>Persistencia de datos en memoria</td>
+              <td>Implícita (periódicamente) o explícita (mediante <em>snapshots</em></td>
+              <td>Explícita (mediante consultas <code>INSERT SELECT</code> de tabla de memoria a tabla física)</td>
+            </tr>
+            <tr>
+              <td>Información no estructurada</td>
+              <td>Los valores son cadenas de caracteres y pueden ser <code>JSON</code></td>
+              <td>Se permiten campos <code>JSON</code> en las tablas</td>
+            </tr>
+            <tr>
+              <td>Consulta por campos <code>JSON</code></td>
+              <td>No</td>
+              <td>Sí</td>
+            </tr>
+            <tr>
+              <td>Almacenamiento distribuido</td>
+              <td>Implícito y gratuito</td>
+              <td>Sólo con MySQL NDB Cluster (de pago)</td>
+            </tr>
+            <tr>
+              <td>API HTTP</td>
+              <td>Siempre disponible</td>
+              <td>Sólo usando desarrollos o herramientas de terceros</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p>Además de las características antes expuestas, conviene resaltar otras dos:</p>
+
+        <ul>
+          <li>
+            <strong>Transaccionalidad:</strong> presente siempre en las bases de datos relacionales, pero no tan frecuente en no relacionales, en el caso concreto de
+            <strong>etcd</strong> toman una forma parecida a un operador ternario (<code>condición ? expresión-si-se-cumple : expresión-si-no-se-cumple</code>).
+            En ambos casos, la operación realizada es atómica y, en caso necesario, se creará una única revisión.
+          </li>
+          <li>
+            <strong>Consultas <em>push:</em></strong> se trata de consultas que no terminan cuando devuelven el valor solicitado, sino que &laquo;vigilan&raquo; la clave
+            o claves indicadas y, cada vez que hay un cambio en alguna de ellas, devuelve la operación que se ha realizado y el nuevo valor de la clave, si se trata de una
+            modificación. Para su uso como repositorio distribuído de configuración, es una poderosa herramienta.
+          </li>
+        </ul>
+      </section>
+
+      <section data-target="ejemplos">
+        <h2>Ejemplos de consulta</h2>
+
+        <p>
+          <strong>etcd</strong> dispone de una herramienta, <strong>etcdctl,</strong> que sirve como interfaz de línea de comando. Los ejemplos que siguen utilizan esta
+          interfaz; si se quisiera usar el gRPC gateway, recomendamos consultar
+          <a href="https://etcd.io/docs/v3.5/dev-guide/api_grpc_gateway/" target="_blank" rel="noopener">la documentación</a>
+          y disponer de una herramienta como <a href="https://insomnia.rest/" target="_blank" rel="noopener">Insomnia</a> (<em>open source</em>) o
+          <a href="https://www.postman.com/">Postman</a> (de pago) en la que importar las
+          <a href="https://etcd.io/docs/v3.5/dev-guide/apispec/swagger/rpc.swagger.json">definiciones Swagger de la API.</a>
+        </p>
+
+        <p>
+          Antes de comenzar con los ejemplos, es necesario tener un <em>cluster</em> disponible y recién creado (revisión 1). Los resultados mostrados para cada ejemplo
+          se basan en el supuesto de que todos ellos se ejecutan en el mismo orden en el que se presentan, partiendo de ese nuevo <em>cluster.</em>
+        </p>
+
+        <p>Para asegurarnos de que la base de datos está vacía, utilizamos este comando:</p>
+
+        <pre>
+          <b>$</b> <b class="command">etcdctl get</b> "" --from-key --write-out=fields
+          <span class="output">"ClusterID" : 14841639068965178418
+          "MemberID" : 10276657743932975437
+          <span class="important">"Revision" : 1</span>
+          "RaftTerm" : 2
+          <span class="important">"More" : false
+          "Count" : 0</span></span>
+        </pre>
+
+        <p>El resultado del comando debe indicar que la revisión es la 1, y que no hay claves (<code>"Count" : 0</code>).</p>
+
+        <div data-target="put">
+
+          <h3>Consultas de escritura</h3>
+          
+          <code class="sample">etcdctl <b>put</b> <em>clave valor [opciones]</em></code>
+  
+          <p>Crea una nueva versión de una clave, con el valor indicado. Si la clave no existe, la crea como versión 1.</p>
+  
+          <div data-target="ej01">
+
+            <h4>Ejemplo 1: Crear una nueva clave</h4>
+    
+            <pre>
+              <b>$</b> <b class="command">etcdctl put</b> nombre Iván
+              <span class="output">OK</span>
+            </pre>
+    
+            <p class="sample-text">
+              El comando sólo devuelve un indicador de que se ha ejecutado con éxito. Si queremos ver el estado actual de la base de datos, podemos utilizar el mismo
+              comando que usamos para comprobar si la base de datos estaba vacía:
+            </p>
+    
+            <pre>
+              <b>$</b> <b class="command">etcdctl get</b> "" --from-key --write-out=fields
+              <span class="output">"ClusterID" : 14841639068965178418
+              "MemberID" : 10276657743932975437
+              <span class="important">"Revision" : 2</span>
+              "RaftTerm" : 2
+              <span class="important">"Key" : "nombre"
+              "CreateRevision" : 2
+              "ModRevision" : 2
+              "Version" : 1
+              "Value" : "Iván"
+              "Lease" : 0
+              "More" : false
+              "Count" : 1</span></span>
+            </pre>
+    
+            <p class="sample-text">Observamos que:</p>
+            <ul class="sample-list">
+              <li>Se ha creado una nueva revisión 2</li>
+              <li>Aparece una entrada <code>Key</code> para la nueva clave (<code>nombre</code>)</li>
+              <li>La clave se ha creado en la revisión 2 (<code>CreateRevision</code>)</li>
+              <li>La última modificación del valor de la clave fue en la misma revisión (<code>ModRevision</code>)</li>
+              <li>La versión de la clave es la inicial</li>
+              <li>Hay un total de 1 clave en la base de datos (<code>Count</code>)</li>
+            </ul>
+          </div> 
+
+          <div data-target="ej02">
+
+            <h4>Ejemplo 2: Modificar el valor de una clave</h4>
+    
+            <pre>
+              <b>$</b> <b class="command">etcdctl put</b> nombre "Iván Sánchez Teso"
+              <span class="output">OK</span>
+            </pre>
+    
+            <p class="sample-text">
+              Igual que en el ejemplo anterior, podemos comprobar el nuevo estado de la base de datos:
+            </p>
+    
+            <pre>
+              <b>$</b> <b class="command">etcdctl get</b> "" --from-key --write-out=fields
+              <span class="output">"ClusterID" : 14841639068965178418
+              "MemberID" : 10276657743932975437
+              <span class="important">"Revision" : 3</span>
+              "RaftTerm" : 2
+              "Key" : "nombre"
+              "CreateRevision" : 2
+              <span class="important">"ModRevision" : 3
+              "Version" : 2
+              "Value" : "Iván Sánchez Teso"</span>
+              "Lease" : 0
+              "More" : false
+              "Count" : 1</span>
+            </pre>
+    
+            <p class="sample-text">Podemos ver que:</p>
+            <ul class="sample-list">
+              <li>Se ha creado una nueva revisión 3</li>
+              <li>La última modificación de la clave ha sido en la revisión 3</li>
+              <li>La versión modificada es la 2</li>
+            </ul>
+    
+            <p class="sample-text">Si creamos ahora una clave nueva y comprobamos el estado de la base de datos&hellip;</p>
+    
+            <pre>
+              <b>$</b> <b class="command">etcdctl put</b> "base de datos" etcd
+              <span class="output">OK</span>
+              <b>$</b> <b class="command">etcdctl get</b> "" --from-key --write-out=fields
+              <span class="output">"ClusterID" : 14841639068965178418
+              "MemberID" : 10276657743932975437
+              <span class="important">"Revision" : 4</span>
+              "RaftTerm" : 2
+              <span class="important">"Key" : "base de datos"
+              "CreateRevision" : 4
+              "ModRevision" : 4
+              "Version" : 1
+              "Value" : "etcd"
+              "Lease" : 0</span>
+              "Key" : "nombre"
+              "CreateRevision" : 2
+              "ModRevision" : 3
+              "Version" : 2
+              "Value" : "Iván Sánchez Teso"
+              "Lease" : 0
+              "More" : false
+              <span class="important">"Count" : 2</span></span>
+            </pre>
+    
+            <p class="sample-text">
+              &hellip;vemos que, como era de esperar, se ha creado una nueva revisión (la número 4) que incluye la nueva clave.
+              No ha cambiado nada para la clave <code>nombre</code>, pero el contador de claves se ha actualizado.
+            </p>
+          </div>
+
+          <div data-target="ej03">
+
+            <h4>Ejemplo 3: Crear o modificar una clave con valor <code>JSON</code></h4>
+    
+            <pre>
+              <b>$</b> <b class="command">etcdctl put</b> alumno '{"nombre": "Iván", "apellidos": ["Sánchez", "Teso"]}'
+              <span class="output">OK</span>
+            </pre>
+    
+            <p class="sample-text">
+              La operación es igual que en los ejemplos anteriores, pero hay que tener la precaución de usar comillas simples
+              para el valor, ya que <code>JSON</code> usa comillas dobles para los nombres de las propiedades y las cadenas
+              de caracteres. Otra opción sería usar comillas dobles para todo y &laquo;escapar&raquo; las del <code>JSON</code> 
+              (por ejemplo: <code>"{\"código\": \"ABCD1234\"}"</code>)
+            </p>
+    
+            <p class="sample-text">Como siempre, podemos ver el resultado de esta operación:</p>
+    
+            <pre>
+              <b>$</b> <b class="command">etcdctl get</b> "" --from-key --write-out=fields
+              <span class="output">"ClusterID" : 14841639068965178418
+                "MemberID" : 10276657743932975437
+                <span class="important">"Revision" : 5</span>
+                "RaftTerm" : 2
+                <span class="important">"Key" : "alumno"
+                "CreateRevision" : 5
+                "ModRevision" : 5
+                "Version" : 1
+                "Value" : "{\"nombre\": \"Iván\", \"apellidos\": [\"Sánchez\", \"Teso\"]}"
+                "Lease" : 0</span>
+                "Key" : "base de datos"
+                "CreateRevision" : 4
+                "ModRevision" : 4
+                "Version" : 1
+                "Value" : "etcd"
+                "Lease" : 0
+                "Key" : "nombre"
+                "CreateRevision" : 2
+                "ModRevision" : 3
+                "Version" : 2
+                "Value" : "Iván Sánchez Teso"
+                "Lease" : 0
+                "More" : false
+                <span class="important">"Count" : 3</span></span>
+            </pre>
+    
+            <p class="sample-text">
+              Para modificar el valor <code>JSON</code> de esta clave, utilizamos también la misma operación:
+            </p>
+    
+            <pre>
+              <b>$</b> <b class="command">etcdctl put</b> alumno '{"nombre": "Iván", "apellidos": "Sánchez Teso"}' <span class="important">--prev-kv</span>
+              <span class="output">OK</span>
+              <span class="important">alumno
+              {"nombre": "Iván", "apellidos": ["Sánchez", "Teso"]}</span>
+            </pre>
+    
+            <p class="sample-text">
+              En esta ocasión, hemos añadido la opción <code>--prev-kv</code>, que nos muestra el valor que tiene
+              la clave <em>antes</em> de modificarla.
+            </p>
+            
+            <p class="sample-text">
+              El valor actual podemos verlo solicitando el estado de la base de datos, como de costumbre:
+            </p>
+    
+            <pre>
+              <b>$</b> <b class="command">etcdctl get</b> "" --from-key --write-out=fields
+              <span class="output">"ClusterID" : 14841639068965178418
+              "MemberID" : 10276657743932975437
+              <span class="important">"Revision" : 6</span>
+              "RaftTerm" : 2
+              "Key" : "alumno"
+              "CreateRevision" : 5
+              <span class="important">"ModRevision" : 6
+              "Version" : 2
+              "Value" : "{\"nombre\": \"Iván\", \"apellidos\": \"Sánchez Teso\"}"</span>
+              "Lease" : 0
+              "Key" : "base de datos"
+              "CreateRevision" : 4
+              "ModRevision" : 4
+              "Version" : 1
+              "Value" : "etcd"
+              "Lease" : 0
+              "Key" : "nombre"
+              "CreateRevision" : 2
+              "ModRevision" : 3
+              "Version" : 2
+              "Value" : "Iván Sánchez Teso"
+              "Lease" : 0
+              "More" : false
+              "Count" : 3</span>
+            </pre>
+          </div>
+        </div>
+
+        <div data-target="get">
+          <h3>Consultas de lectura</h3>
+          
+          <code class="sample">etcdctl <b>get</b> <em>desde [hasta] [opciones]</em></code>
+  
+          <p>Devuelve el valor, actual o pasado, de una, varias, o todas las claves.</p>
+  
+          <div data-target="ej04">
+            <h4>Ejemplo 4: Obtener el valor de una única clave (formato simple)</h4>
+    
+            <pre>
+              <b>$</b> <b class="command">etcdctl get</b> nombre
+              <span class="output">nombre
+              Iván Sánchez Teso</span>
+            </pre>
+    
+            <p class="sample-text">
+              En este ejemplo nos limitamos a indicar el valor del parámetro <code>desde</code>. Al no aparecer el parámetro <code>hasta</code>
+              ni añadirse ninguna opción, el comando entiende que se solicita el valor de una única clave en formato simple, es decir, mostrando
+              exclusivamente el nombre y el valor de la clave solicitada, en líneas diferentes.
+            </p>
+    
+            <h4 data-target="ej05">Ejemplo 5: Obtener el valor de un intervalo de claves (formato simple)</h4>
+    
+            <pre>
+              <b>$</b> <b class="command">etcdctl get</b> a <span class="important">c</span>
+              <span class="output">alumno
+              {"nombre": "Iván", "apellidos": "Sánchez Teso"}
+              base de datos
+              etcd</span>
+            </pre>
+    
+            <p class="sample-text">
+              En esta ocasión hemos indicado los valores de los parámetros <code>desde</code> y <code>hasta</code>. Como ya hemos dicho, las claves
+              se indexan por su valor binario, por lo que podemos leer esta consulta como
+              <em>
+                &laquo;dame todas las claves cuyo valor binario sea mayor o igual que el de la cadena <code>"a"</code>
+                pero menor que el de la cadena <code>"c"</code>&raquo;
+              </em>. Es decir, en nuestro caso, los de las claves <code>alumno</code> y <code>base de datos</code>, pero no el de la clave <code>nombre</code>.
+            </p>
+          </div>
+  
+          <div data-target="ej06">
+            <h4>Ejemplo 6: Obtener los valores de todas las claves (formato simple)</h4>
+    
+            <pre>
+              <b>$</b> <b class="command">etcdctl get</b> <span class="important">"" --from-key</span>
+              <span class="output">alumno
+              {"nombre": "Iván", "apellidos": "Sánchez Teso"}
+              base de datos
+              etcd
+              nombre
+              Iván Sánchez Teso</span>
+            </pre>
+    
+            <p class="sample-text">
+              En esta ocasión, le damos al parámetro <code>desde</code> el valor &laquo;cadena vacía&raquo;, es decir <code>NULL</code>. El valor
+              binario que le corresponde es <code>0</code>, con lo cual el intervalo comienza en la primera posición del índice. En lugar de indicar
+              un valor para el parámetro <code>hasta</code>, se usa la opción <code>--from-key</code>, para indicar a <strong>etcd</strong> que lo que
+              queremos es un intervalo sin límite superior, no un único valor de clave.
+            </p>
+    
+            <p class="sample-text">
+              Es importante recordar utilizar esta opción ya que, si la omitimos, recibiremos un mensaje de error parecido al siguiente:
+            </p>
+    
+            <pre>
+              <b>$</b> <b class="command">etcdctl get</b> ""
+              <span class="output">{"level":"warn","ts":"2025-01-07T15:45:43.021862+0100","logger":"etcd-client","caller":"v3@v3.5.17/retry_interceptor.go:63","msg":"retrying of unary invoker failed","target":"etcd-endpoints://0xc0005ca1e0/127.0.0.1:2379","attempt":0,<span class="important">"error":"rpc error: code = InvalidArgument desc = etcdserver: key is not provided"</span>}
+              <span class="important">Error: etcdserver: key is not provided</span></span>
+            </pre>
+    
+            <p class="sample-text">
+              Al no añadir la opción <code>--from-key</code>, la base de datos interpreta que queremos el valor de una clave cuyo nombre es <code>NULL</code>, que no es un nombre válido.
+            </p>
+          </div>
+  
+          <div data-target="ej07">
+            <h4>Ejemplo 7: Formato lista de campos</h4>
+    
+            <pre>
+              <b>$</b> <b class="command">etcdctl get</b> nombre <span class="important">--write-out=fields</span>
+              <span class="output">"ClusterID" : 14841639068965178418
+              "MemberID" : 10276657743932975437
+              "Revision" : 6
+              "RaftTerm" : 2
+              "Key" : "nombre"
+              "CreateRevision" : 2
+              "ModRevision" : 3
+              "Version" : 2
+              "Value" : "Iván Sánchez Teso"
+              "Lease" : 0
+              "More" : false
+              "Count" : 1</span>
+            </pre>
+            <pre>
+              <b>$</b> <b class="command">etcdctl get</b> a c <span class="important">--write-out=fields</span>
+              <span class="output">"ClusterID" : 14841639068965178418
+              "MemberID" : 10276657743932975437
+              "Revision" : 6
+              "RaftTerm" : 2
+              "Key" : "alumno"
+              "CreateRevision" : 5
+              "ModRevision" : 6
+              "Version" : 2
+              "Value" : "{\"nombre\": \"Iván\", \"apellidos\": \"Sánchez Teso\"}"
+              "Lease" : 0
+              "Key" : "base de datos"
+              "CreateRevision" : 4
+              "ModRevision" : 4
+              "Version" : 1
+              "Value" : "etcd"
+              "Lease" : 0
+              "More" : false
+              "Count" : 2</span>
+            </pre>
+            <pre>
+              <b>$</b> <b class="command">etcdctl get</b> "" --from-key <span class="important">--write-out=fields</span>
+              <span class="output">"ClusterID" : 14841639068965178418
+              "MemberID" : 10276657743932975437
+              "Revision" : 6
+              "RaftTerm" : 2
+              "Key" : "alumno"
+              "CreateRevision" : 5
+              "ModRevision" : 6
+              "Version" : 2
+              "Value" : "{\"nombre\": \"Iván\", \"apellidos\": \"Sánchez Teso\"}"
+              "Lease" : 0
+              "Key" : "base de datos"
+              "CreateRevision" : 4
+              "ModRevision" : 4
+              "Version" : 1
+              "Value" : "etcd"
+              "Lease" : 0
+              "Key" : "nombre"
+              "CreateRevision" : 2
+              "ModRevision" : 3
+              "Version" : 2
+              "Value" : "Iván Sánchez Teso"
+              "Lease" : 0
+              "More" : false
+              "Count" : 3</span>
+            </pre>
+    
+            <p class="sample-text">
+              Como se puede comprobar, se trata de las mismas operaciones de consulta que hemos visto hasta ahora, solo que se les añade la opción
+              <code>--write-out=fields</code>. En todos los casos, obtenemos la información completa de cada clave, en el formato al que estábamos
+              acostumbrados desde el inicio del documento.
+            </p>
+          </div>
+  
+          <div data-target="ej08">
+            <h4>Ejemplo 8: Formato <code>JSON</code></h4>
+    
+            <pre>
+              <b>$</b> <b class="command">etcdctl get</b> nombre <span class="important">--write-out=json</span>
+              <span class="output">{"header":{"cluster_id":14841639068965178418,"member_id":10276657743932975437,"revision":6,"raft_term":2},"kvs":[{<span class="important">"key":"bm9tYnJl"</span>,"create_revision":2,"mod_revision":3,"version":2,<span class="important">"value":"SXbDoW4gU8OhbmNoZXogVGVzbw=="</span>}],"count":1}</span>
+            </pre>
+    
+            <pre>
+              <b>$</b> <b class="command">etcdctl get</b> a c <span class="important">--write-out=json</span>
+              {"header":{"cluster_id":14841639068965178418,"member_id":10276657743932975437,"revision":6,"raft_term":2},"kvs":[{<span class="important">"key":"YWx1bW5v"</span>,"create_revision":5,"mod_revision":6,"version":2,<span class="important">"value":"eyJub21icmUiOiAiSXbDoW4iLCAiYXBlbGxpZG9zIjogIlPDoW5jaGV6IFRlc28ifQ=="</span>},{<span class="important">"key":"YmFzZSBkZSBkYXRvcw=="</span>,"create_revision":4,"mod_revision":4,"version":1,<span class="important">"value":"ZXRjZA=="</span>}],"count":2}        
+            </pre>
+    
+            <pre>
+              <b>$</b> <b class="command">etcdctl get</b> "" --from-key <span class="important">--write-out=json</span>
+              {"header":{"cluster_id":14841639068965178418,"member_id":10276657743932975437,"revision":6,"raft_term":2},"kvs":[{<span class="important">"key":"YWx1bW5v"</span>,"create_revision":5,"mod_revision":6,"version":2,<span class="important">"value":"eyJub21icmUiOiAiSXbDoW4iLCAiYXBlbGxpZG9zIjogIlPDoW5jaGV6IFRlc28ifQ=="</span>},{<span class="important">"key":"YmFzZSBkZSBkYXRvcw=="</span>,"create_revision":4,"mod_revision":4,"version":1,<span class="important">"value":"ZXRjZA=="</span>},{<span class="important">"key":"bm9tYnJl"</span>,"create_revision":2,"mod_revision":3,"version":2,<span class="important">"value":"SXbDoW4gU8OhbmNoZXogVGVzbw=="</span>}],"count":3}
+            </pre>
+    
+            <p class="sample-text">
+              El comando es igual que el del ejemplo anterior, solo que la opción <code>--write-out</code> toma el valor <code>json</code>. Sin embargo, hay dos diferencias importantes en el formato
+              de salida: la clave o relación de claves obtenidas son elementos de la propiedad <code>kvs</code>, que siempre es un array; y los valores de las propiedades <code>key</code> y <code>value</code>
+              están codificadas en Base64:
+    
+              <table>
+                <thead>
+                  <tr><th colspan="2">Clave</th><th colspan="2">Valor</th></tr>
+                  <tr><th>Codificada</th><th>Decodificada</th><th>Codificado</th><th>Decodificado</th></tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><code>YWx1bW5v</code></td>
+                    <td><code><script>document.write(decode("YWx1bW5v"))</script></code></td>
+                    <td><code>eyJub21icmUiOiAiSXbDoW4iLCAiYXBlbGxpZG9zIjogIlPDoW5jaGV6IFRlc28ifQ==</code></td>
+                    <td><code><script>document.write(decode("eyJub21icmUiOiAiSXbDoW4iLCAiYXBlbGxpZG9zIjogIlPDoW5jaGV6IFRlc28ifQ=="))</script></code></td>
+                  </tr>
+                  <tr>
+                    <td><code>YmFzZSBkZSBkYXRvcw==</code></td>
+                    <td><code><script>document.write(decode("YmFzZSBkZSBkYXRvcw=="))</script></code></td>
+                    <td><code>ZXRjZA==</code></td>
+                    <td><code><script>document.write(decode("ZXRjZA=="))</script></code></td>
+                  </tr>
+                  <tr>
+                    <td><code>bm9tYnJl</code></td>
+                    <td><code><script>document.write(decode("bm9tYnJl"))</script></code></td>
+                    <td><code>SXbDoW4gU8OhbmNoZXogVGVzbw==</code></td>
+                    <td><code><script>document.write(decode("SXbDoW4gU8OhbmNoZXogVGVzbw=="))</script></code></td>
+                  </tr>
+                </tbody>
+              </table>
+            </p>
+    
+            <p class="sample-text">
+              Si utilizamos el gRPC gateway, el <code>body</code> de las peticiones es un documento <code>JSON</code>, por lo que tanto los nombres de clave como
+              sus valores deberán estar codificados en Base64.
+            </p>
+          </div>
+  
+          <div data-target="ej09">
+            <h4>Ejemplo 9: Obtener valores de una revisión anterior</h4>
+    
+            <pre>
+              <b>$</b> <b class="command">etcdctl get</b> "" --from-key --write-out=fields <span class="important">--rev=4</span>
+              <span class="output">"ClusterID" : 14841639068965178418
+              "MemberID" : 10276657743932975437
+              <span class="important">"Revision" : 6</span>
+              "RaftTerm" : 2
+              "Key" : "base de datos"
+              <span class="important">"CreateRevision" : 4
+              "ModRevision" : 4</span>
+              "Version" : 1
+              "Value" : "etcd"
+              "Lease" : 0
+              "Key" : "nombre"
+              <span class="important">"CreateRevision" : 2
+              "ModRevision" : 3</span>
+              "Version" : 2
+              "Value" : "Iván Sánchez Teso"
+              "Lease" : 0
+              "More" : false
+              "Count" : 2</span>
+            </pre>
+    
+            <p class="sample-text">
+              Podemos comprobar que, aunque la revisión actual es la número 6, sólo se muestran las creadas hasta la revisión 4, incluida. En caso de que alguna clave
+              haya sido actualizada en una revisión posterior a la solicitada, el valor que se muestra es el que tenía en la revisión indicada en el comando. 
+            </p>
+    
+            <p class="sample-text">
+              La opción <code>--rev</code> se puede utilizar también cuando se consulta una sola clave o un intervalo de claves.
+            </p>
+          </div>
+        </div>
+
+        <div data-target="del">
+          <h3>Consultas de borrado</h3>
+  
+          <code class="sample">etcdctl <b>del</b> <em>desde [hasta] [opciones]</em></code>
+  
+          <p>Elimina una o más claves.</p>
+  
+          <div data-target="ej10">
+            <h4>Ejemplo 10: Eliminar una única clave</h4>
+    
+            <pre>
+              <b>$</b> <b class="command">etcdctl del</b> alumno
+              <span class="output">1</span>
+            </pre>
+    
+            <p class="sample-text">
+              La sintaxis de este comando es equivalente a la del comando <code>get</code>, pero el valor devuelto es el número de claves eliminadas. Si consultamos el estado
+              de la base de datos, podremos ver que no aparece la clave <code>alumno</code>:
+            </p>
+    
+            <pre>
+              <b>$</b> <b class="command">etcdctl get</b> "" --from-key --write-out=fields
+              <span class="output">"ClusterID" : 14841639068965178418
+              "MemberID" : 10276657743932975437
+              <span class="important">"Revision" : 7</span>
+              "RaftTerm" : 2
+              "Key" : "base de datos"
+              "CreateRevision" : 4
+              "ModRevision" : 4
+              "Version" : 1
+              "Value" : "etcd"
+              "Lease" : 0
+              "Key" : "nombre"
+              "CreateRevision" : 2
+              "ModRevision" : 3
+              "Version" : 2
+              "Value" : "Iván Sánchez Teso"
+              "Lease" : 0
+              "More" : false
+              <span class="important">"Count" : 2</span></span>
+            </pre>
+    
+            <p class="sample-text">
+              La información obtenida nos dice que la consulta de borrado ha creado una nueva revisión, en la que sólo quedan 2 claves. Si consultamos la revisión anterior,
+              la clave borrada sí que se recupera:
+            </p>
+    
+            <pre>
+              <b>$</b> <b class="command">etcdctl get</b> "" --from-key --write-out=fields <span class="important">--rev=6</span>
+              <span class="output">"ClusterID" : 14841639068965178418
+              "MemberID" : 10276657743932975437
+              "Revision" : 7
+              "RaftTerm" : 2
+              <span class="important">"Key" : "alumno"
+              "CreateRevision" : 5
+              "ModRevision" : 6
+              "Version" : 2
+              "Value" : "{\"nombre\": \"Iván\", \"apellidos\": \"Sánchez Teso\"}"
+              "Lease" : 0</span>
+              "Key" : "base de datos"
+              "CreateRevision" : 4
+              "ModRevision" : 4
+              "Version" : 1
+              "Value" : "etcd"
+              "Lease" : 0
+              "Key" : "nombre"
+              "CreateRevision" : 2
+              "ModRevision" : 3
+              "Version" : 2
+              "Value" : "Iván Sánchez Teso"
+              "Lease" : 0
+              "More" : false
+              <span class="important">"Count" : 3</span></span>
+            </pre>
+    
+            <p class="sample-text">
+              Efectivamente, la clave <code>alumno</code> aparece cuando consultamos la revisión 6. Obsérvese que la consulta de borrado actualiza el valor de la revisión de
+              última modificación.
+            </p>
+          </div>
+  
+          <div data-target="ej11">
+            <h4>Ejemplo 11: Eliminar todas las claves en un intervalo</h4>
+    
+            <pre>
+              <b>$</b> <b class="command">etcdctl del</b> a c --write-out=fields
+              <span class="output">In etcd v3.6, the operation will be suspended for a few seconds to provide the user time to verify range.
+              "ClusterID" : 14841639068965178418
+              "MemberID" : 10276657743932975437
+              <span class="important">"Revision" : 8</span>
+              "RaftTerm" : 2
+              <span class="important">"Deleted" : 1</span></span>
+            </pre>
+    
+            <p class="sample-text">
+              En este ejemplo podemos ver que la definición del intervalo se hace igual que en las consultas <code>get</code>. También se ha usado la opción <code>--write-out</code>
+              como prueba de que también pueden aplicarse distintos formatos de salida a las consultas de borrado.
+            </p>
+          </div>
+        </div>
+
+        <div data-target="ej12">
+          <h4>Ejemplo 12: Eliminar todas las claves</h4>
+          
+          <pre>
+            <b>$</b> <b class="command">etcdctl del</b> "" --from-key --write-out=fields
+            <span class="output">"ClusterID" : 14841639068965178418
+              "MemberID" : 10276657743932975437
+              <span class="important">"Revision" : 9</span>
+              "RaftTerm" : 2
+              <span class="important">"Deleted" : 1</span></span>
+          </pre>
+
+          <p class="sample-text">
+            Como vemos, la salida es igual que en el caso anterior. Dado que sólo quedaba la clave <code>nombre</code>, es la única que se ha borrado.
+          </p>
+        </div>
+        <div data-target="txn">
+          <h3>Transacciones</h3>
+
+          <code class="sample">etcdctl <b>txn</b> <em>[opciones]</em> [--interactive]</code>
+
+          <p>
+            Permite definir una condición y dos secuencias de consultas, una para el caso de que la condición se cumpla y otro para el caso de que no se cumpla.
+            Si ocurre un error en alguna de las consultas, la operación se cancela sin ejecutar ninguna de las dos secuencias.
+          </p>
+
+          <p>
+            Para mostrar el funcionamiento de las transacciones en <strong>etcd,</strong> imaginemos que queremos usarla como caché de tipos de cambio de divisas.
+            Los datos que utilizaremos en este ejemplo son los de la siguiente tabla:
+            <table class="currency">
+              <thead>
+                <th>Fecha</th><th>1€ ⇒ $</th><th>$1 ⇒ €</th>
+              </thead>
+              <tbody>
+                <tr><td>01/01/2025</td><td>1,0377</td><td>0,9636</td></tr>
+                <tr><td>02/01/2025</td><td>1,0263</td><td>0.9744</td></tr>
+                <tr><td>03/01/2025</td><td>1,0290</td><td>0,9718</td></tr>
+                <tr><td>04/01/2025</td><td>1,0311</td><td>0,9699</td></tr>
+                <tr><td>05/01/2025</td><td>1,0309</td><td>0,9700</td></tr>
+                <tr><td>06/01/2025</td><td>1,0397</td><td>0,9618</td></tr>
+                <tr><td>07/01/2025</td><td>1,0367</td><td>0,9646</td></tr>
+              </tbody>
+            </table>
+            Obviamente, hay una relación entre el tipo de cambio € ⇒ $ y el de $ ⇒ € por lo que, si modificamos uno de ellos, <em>debemos</em> modificar el otro.
+            Este es un caso claro de operación atómica: dos consultas <code>put</code> que se deben ejecutar ambas, o ninguna.
+          </p>
+
+          <p>
+            Partiendo de una base de datos nueva, veremos qué hacer para crear el cambio del día 1 de enero, y por qué no deberíamos hacer lo mismo para el cambio del
+            día 2. Terminaremos con el cambio del día 3 para ver el modo &laquo;no interactivo&raquo; de crear una transacción.
+          </p>
+
+          <div data-target="ej13">
+            <h4>Ejemplo 13: Transacción inicial</h4>
+
+            <pre>
+              <b>$</b> <b class="command">etcdctl txn</b> --interactive
+              <span class="output">compares:</span>
+              ⏎
+              <span class="output">success requests (get, put, del):</span>
+              put /cambio/eur/usd 1.0377        
+              put /cambio/usd/eur 0.9636
+              ⏎
+              <span class="output">failure requests (get, put, del):</span>
+              ⏎
+              <span class="output">SUCCESS
+              
+              OK
+              
+              OK</span>
+            </pre>
+
+            <p class="sample-text">
+              En el modo <em>interactivo,</em> se nos pide cada uno de los tres componentes de la transacción (condición de &laquo;guarda&raquo;, consultas cuando se cumple
+              y consultas cuando no se cumple) de forma secuencial. Para terminar con uno de los componentes, basta pulsar <kbd>Enter⏎</kbd> en una línea en blanco.
+            </p>
+
+            <p class="sample-text">
+              En el ejemplo anterior omitimos la condición pulsando directamente <kbd>Enter⏎</kbd>. Esto hace que se ejecute <em>siempre</em> el bloque <code>success</code>,
+              en el que indicamos las consultas que se ejecutan cuando se cumple la condición. El formato utilizado para las claves en las consultas <code>put</code>
+              (<code>/cambio/<em>divisa origen</em>/<em>divisa destino</em></code>) no es obligatorio, se podría utilizar cualquier otro nombre de clave. Sin
+              embargo, resulta conveniente porque facilita recordar la clave cuando se haga una consulta.
+            </p>
+
+            <p class="sample-text">
+              Para indicar que hemos terminado de añadir consultas en el bloque <code>success</code>, pulsamos <kbd>Enter⏎</kbd> en una línea vacía, a continuación de
+              las dos consultas <code>put</code>. Dado que no hemos puesto condición, podemos omitir también el bloque <code>failure</code>, porque no se ejecutaría. De
+              nuevo, pulsamos directamente <kbd>Enter⏎</kbd> y se ejecuta la transacción.
+            </p>
+
+            <p class="sample-text">
+              La salida del comando introducido se interpreta como &laquo;la condición se cumple, luego ejecutamos el bloque <code>success</code>&raquo; y, después, nos
+              indica con el doble <code>OK</code> que las dos consultas <code>put</code> se han ejecutado con éxito. Si queremos ver cómo queda el estado de la base de datos,
+              podemos utilizar la consulta acostumbrada:
+            </p>
+
+            <pre>
+              <b>$</b> <b class="command">etcdctl get</b> "" --from-key --write-out=fields
+              <span class="output">"ClusterID" : 14841639068965178418
+              "MemberID" : 10276657743932975437
+              <span class="important">"Revision" : 2</span>
+              "RaftTerm" : 2
+              <span class="important">"Key" : "/cambio/eur/usd"
+              "CreateRevision" : 2
+              "ModRevision" : 2
+              "Version" : 1
+              "Value" : "1.0377"
+              "Lease" : 0
+              "Key" : "/cambio/usd/eur"
+              "CreateRevision" : 2
+              "ModRevision" : 2
+              "Version" : 1
+              "Value" : "0.9636"
+              "Lease" : 0</span>
+              "More" : false
+              <span class="important">"Count" : 2</span></span>
+            </pre>
+
+            <p class="sample-text">
+              Podemos comprobar que las dos sentencias <code>put</code> se han ejecutado en una única revisión (recordemos que la creación de la base de datos se considera
+              revisión 1).
+            </p>
+          </div>
+
+          <div data-target="ej14">
+            <h4>Ejemplo 14: Transacciones posteriores</h4>
+
+            <p class="sample-text">
+              La transacción anterior, si bien puede ser suficiente para la primera vez que introducimos un cambio entre dos divisas, podría darnos problemas cuando queramos
+              actualizarlo. Por ejemplo, supongamos que introducimos el cambio del día 2 con esta transacción:
+            </p>
+
+            <pre>
+              <b>$</b> <b class="command">etcdctl txn</b> --interactive
+              <span class="output">compares:</span>
+              ⏎
+              <span class="output">success requests (get, put, del):</span>
+              put /cambio/eur/usd 1.0263
+              put /cambio/<span style="color: red;">usf</span>/eur 0.9744
+              ⏎
+              <span class="output">failure requests (get, put, del):</span>
+              ⏎
+              <span class="output">SUCCESS
+              
+              OK
+              
+              OK</span>
+            </pre>
+
+            <p class="sample-text">
+              Aparentemente, todo ha ido bien. Salvo por un pequeño detalle: hemos escrito mal <code>usd</code> en la segunda consulta <code>put</code>. Esto significa que
+              habríamos creado una versión 2 de <code>/cambio/eur/usd</code>, pero una primera versión de una nueva clave <code>/cambio/usf/eur</code>. Lo que es peor,
+              <em>no</em> hemos modificado el valor de la clave <code>/cambio/usd/eur</code>, que sigue en su versión 1, por lo que si pedimos ese tipo estaremos obteniendo
+              el del día 1.
+            </p>
+
+            <p class="sample-text">
+              Para evitar este problema, añadiremos condiciones a la transacción:
+            </p>
+
+            <pre>
+              <b>$</b> <b class="command">etcdctl txn</b> --interactive --write-out=fields
+              <span class="output">compares:</span>
+              mod("/cambio/eur/usd") > "0"
+              mod("/cambio/<span style="color: red;">usf</span>/eur") > "0"
+              ⏎
+              <span class="output">success requests (get, put, del):</span>
+              put /cambio/eur/usd 1.0263
+              put /cambio/<span style="color: red;">usf</span>/eur 0.9744
+              ⏎
+              <span class="output">failure requests (get, put, del):</span>
+              get "" --from-key
+              ⏎
+              <span class="output">"ClusterID" : 14841639068965178418
+              "MemberID" : 10276657743932975437
+              <span class="important">"Revision" : 2</span>
+              "RaftTerm" : 2
+              <span class="important">"Succeeded" : false</span>
+              "ClusterID" : 0
+              "MemberID" : 0
+              <span class="important">"Revision" : 2</span>
+              "RaftTerm" : 0
+              <span class="important">"Key" : "/cambio/eur/usd"
+              "CreateRevision" : 2
+              "ModRevision" : 2
+              "Version" : 1
+              "Value" : "1.0377"
+              "Lease" : 0
+              "Key" : "/cambio/usd/eur"
+              "CreateRevision" : 2
+              "ModRevision" : 2
+              "Version" : 1
+              "Value" : "0.9636"
+              "Lease" : 0</span>
+              "More" : false
+              <span class="important">"Count" : 2</span></span>
+            </pre>
+
+            <p class="sample-text">
+              En esta ocasión hemos indicado la opción <code>--write-out</code> para obtener toda la información del resultado de la transacción. Hay que tener en cuenta que
+              esta opción no puede utilizarse en las consultas que forman parte de los bloques <code>success</code> o <code>failure</code>, pero se aplicará a las consultas
+              que se ejecuten.
+            </p>
+
+            <p class="sample-text">
+              La transacción anterior se podría leer como: &laquo;si la versión de modificación de la clave <code>/cambio/eur/usd</code> es mayor que <code>"0"</code> y la
+              de la clave <code>/cambio/<span style="color: red;">usf</span>/eur</code> también, actualiza ambas claves con los valores proporcionados. En caso contrario,
+              devuelve una lista con todas las claves existentes&raquo;.
+            </p>
+
+            <p class="sample-text">
+              Podemos comprobar que:
+              <ul>
+                <li>No se ha creado ninguna revisión nueva</li>
+                <li>Alguna de las condiciones no se cumple (<code>"Succeeded" : false</code>)</li>
+                <li>No se ha creado la clave errónea <code>/cambio/usf/eur</code></li>
+                <li>No se ha actualizado el tipo de cambio de ninguna de las dos claves existentes</li>
+              </ul>
+            </p>
+
+            <p class="sample-text">
+              Con la información disponible, queda como ejercicio la actualización correcta de los tipos de cambio del día 2. El siguiente ejemplo asume que esa actualización
+              se ha realizado.
+            </p>
+          </div>
+
+          <div data-target="ej15">
+            <h4>Ejemplo 15: Transacciones no interactivas</h4>
+
+            <p class="sample-text">
+              El funcionamiento es el mismo que en el caso de las interactivas, pero la forma de indicarle las condiciones y los dos bloques es diferente. Una de las maneras
+              puede ser crear un fichero de texto con las condiciones y consultas de la transacción, y luego hacer que el comando de la transacción utilice ese fichero en
+              lugar de la entrada estándar. Otra forma puede ser desde línea de comando, haciendo que el comando reciba como entrada una cadena de caracteres con el contenido
+              de la transacción.
+            </p>
+
+            <p class="sample-text">
+              En este ejemplo se ha optado por crear un fichero <code>dia3.txn</code> con este contenido:
+            </p>
+
+            <pre>
+              <b>$</b> <b class="command">cat</b> dia3.txn 
+              <span class="output">mod("/cambio/eur/usd") > "0"
+              mod("/cambio/usd/eur") > "0"
+
+              put /cambio/eur/usd 1.0290
+              put /cambio/usd/eur 0.9718
+              get /cambio --prefix
+
+              get "" --from-key
+              </span>
+              <b>$</b>
+            </pre>
+
+            <p class="sample-text">
+              La única diferencia con el ejemplo anterior, en cuanto a las consultas que se ejecutan, es que pedimos que muestre el valor de todas las claves que comienzan por
+              <code>/cambio</code> después de actualizar el tipo de cambio.
+            </p>
+
+            <p class="sample-text">
+              Ejecutamos esta transacción:
+            </p>
+
+            <pre>
+              <b>$</b> <b class="command">cat</b> dia3.txn | <b class="command">etcdctl txn</b> --write-out=fields
+              <span class="output">"ClusterID" : 14841639068965178418
+              "MemberID" : 10276657743932975437
+              <span class="important">"Revision" : 4</span>
+              "RaftTerm" : 2
+              <span class="important">"Succeeded" : true</span>
+              "ClusterID" : 0
+              "MemberID" : 0
+              "Revision" : 4
+              "RaftTerm" : 0
+              "ClusterID" : 0
+              "MemberID" : 0
+              "Revision" : 4
+              "RaftTerm" : 0
+              "ClusterID" : 0
+              "MemberID" : 0
+              "Revision" : 4
+              "RaftTerm" : 0
+              <span class="important">"Key" : "/cambio/eur/usd"
+              "CreateRevision" : 2
+              "ModRevision" : 4
+              "Version" : 3
+              "Value" : "1.0290"</span>
+              "Lease" : 0
+              <span class="important">"Key" : "/cambio/usd/eur"
+              "CreateRevision" : 2
+              "ModRevision" : 4
+              "Version" : 3
+              "Value" : "0.9718"</span>
+              "Lease" : 0
+              "More" : false
+              "Count" : 2</span>   
+            </pre>
+          </div>
+        </div>
+        <div data-target="watch">
+          <h3>Consultas <em>push</em></h3>
+
+          <code class="sample">etcdctl <b>watch</b> <em>desde [hasta] [opciones]</em></code>
+
+          <p>Devuelve el valor actual de una, varias, o todas las claves, y todos los cambios que sufran desde que se ejecutan.</p>
+
+          <p>
+            En este ejemplo utilizamos una nueva base de datos y dos sesiones de terminal. En el terminal 1, ejecutamos la consulta <em>push</em> para que &laquo;vigile&raquo; los
+            cambios en la clave <code>prueba:</code>
+          </p>
+
+          <div class="split">
+            <pre>
+              <b>terminal1$</b> <b class="command">etcdctl watch</b> prueba --write-out=fields
+            </pre>
+            <pre>
+              <b>terminal2$</b>
+            </pre>
+          </div>
+
+          <p>
+            Después, en el terminal 2 le damos valor a la clave &laquo;vigilada&raquo;:
+          </p>
+
+          <div class="split">
+            <pre>
+              <b>terminal1$</b> <b class="command">etcdctl watch</b> prueba --write-out=fields
+              <span class="output">"ClusterID" : 14841639068965178418
+              "MemberID" : 10276657743932975437
+              "Revision" : 2
+              "RaftTerm" : 2
+              <span class="important">"Type" : PUT
+              "Key" : "prueba"
+              "CreateRevision" : 2
+              "ModRevision" : 2
+              "Version" : 1
+              "Value" : "valor1"</span>
+              "Lease" : 0</span>
+            </pre>
+            <pre>
+              <b>terminal2$</b> <b class="command">etcdctl put</b> prueba valor1
+              <span class="output">OK</span>
+              <b>terminal2$</b>
+            </pre>
+          </div>
+
+          <p>
+            La consulta <code>watch</code> devuelve inmediatamente los datos de la operación realizada, y continúa &laquo;vigilando&raquo;. Si hacemos un nuevo cambio,
+            también quedará reflejado:
+          </p>
+
+          <div class="split">
+            <pre>
+              <b>terminal1$</b> <b class="command">etcdctl watch</b> prueba --write-out=fields
+              <span class="output">"ClusterID" : 14841639068965178418
+              "MemberID" : 10276657743932975437
+              "Revision" : 2
+              "RaftTerm" : 2
+              "Type" : PUT
+              "Key" : "prueba"
+              "CreateRevision" : 2
+              "ModRevision" : 2
+              "Version" : 1
+              "Value" : "valor1"
+              "Lease" : 0
+              "ClusterID" : 14841639068965178418 
+              "MemberID" : 10276657743932975437 
+              <span class="important">"Revision" : 3 
+              "RaftTerm" : 2 
+              "Type" : PUT 
+              "Key" : "prueba"
+              "CreateRevision" : 2 
+              "ModRevision" : 3 
+              "Version" : 2 
+              "Value" : "valor2"</span>
+              "Lease" : 0 </span>
+            </pre>
+            <pre>
+              <terminal2$</b> <b class="command">etcdctl put</b> prueba valor1
+              <span class="output">OK</span>
+              <b>terminal2$</b> <b class="command">etcdctl put</b> prueba valor2
+              <span class="output">OK</span>
+              <b>terminal2$</b>
+            </pre>
+          </div>
+
+          <p>
+            Como podemos comprobar, la modificación queda reflejada, y la consulta sigue esperando más cambios. Para terminar, veremos que también informa del borrado de claves:
+          </p>
+
+          <div class="split">
+            <pre>
+              <b>terminal1$</b> <b class="command">etcdctl watch</b> prueba --write-out=fields
+              <span class="output">"ClusterID" : 14841639068965178418
+              "MemberID" : 10276657743932975437
+              "Revision" : 2
+              "RaftTerm" : 2
+              "Type" : PUT
+              "Key" : "prueba"
+              "CreateRevision" : 2
+              "ModRevision" : 2
+              "Version" : 1
+              "Value" : "valor1"
+              "Lease" : 0
+              "ClusterID" : 14841639068965178418 
+              "MemberID" : 10276657743932975437 
+              "Revision" : 3 
+              "RaftTerm" : 2 
+              "Type" : PUT 
+              "Key" : "prueba"
+              "CreateRevision" : 2 
+              "ModRevision" : 3 
+              "Version" : 2 
+              "Value" : "valor2"
+              "Lease" : 0 </span>
+            </pre>
+            <pre>
+              <terminal2$</b> <b class="command">etcdctl put</b> prueba valor1
+              <span class="output">OK</span>
+              <b>terminal2$</b> <b class="command">etcdctl put</b> prueba valor2
+              <span class="output">OK</span>
+              <b>terminal2$</b> <b class="command">etcdctl del</b> prueba
+              <span class="output">1</span>
+              <b>terminal2$</b>
+            </pre>
+          </div>
+
+        </div>
+      </section>
+    </article>
+    <aside>
+      <strong>Índice</strong>
+      <ul>
+        <li data-section="introduccion">¿Qué es etcd?</li>
+        <li data-section="instalacion">Instalación</li>
+        <li data-section="modelo">Modelo de datos</li>
+        <li data-section="usos">Usos paradigmáticos</li>
+        <li data-section="ejemplos">Ejemplos de consulta
+          <ul>
+            <li data-section="put">
+              Consultas de escritura
+              <ul>
+                <li data-section="ej01">Crear una nueva clave</li>
+                <li data-section="ej02">Modificar el valor de una clave</li>
+                <li data-section="ej03">Crear o modificar una clave con valor <code>JSON</code></li>
+              </ul>
+            </li>
+            <li data-section="get">Consultas de lectura
+              <ul>
+                <li data-section="ej04">Una única clave</li>
+                <li data-section="ej05">Un intervalo de claves</li>
+                <li data-section="ej06">Todas las claves</li>
+                <li data-section="ej07">Formato lista de campos</li>
+                <li data-section="ej08">Formato <code>JSON</code></li>
+                <li data-section="ej09">Revisiones anteriores</li>
+              </ul>
+            </li>
+            <li data-section="del">Consultas de borrado
+              <ul>
+                <li data-section="ej10">Una única clave</li>
+                <li data-section="ej11">Un intervalo de claves</li>
+                <li data-section="ej12">Todas las claves</li>
+              </ul>
+            </li>
+            <li data-section="txn">Transacciones
+              <ul>
+                <li data-section="ej13">Inicial</li>
+                <li data-section="ej14">Posteriores</li>
+                <li data-section="ej15">Modo &laquo;no interactivo&raquo;</li>
+              </ul>
+            </li>
+            <li data-section="watch">Consultas <em>push</em></li>
+          </ul>
+        </li>
+      </ul>
+    </aside>
+  </main>
 </body>
